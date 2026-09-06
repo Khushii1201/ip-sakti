@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Query &amp; Opinion — IP-SAKTI Sahayak</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="config.js"></script>
+<style>body{font-family:'IBM Plex Sans',sans-serif;background:#fff8f2;color:#1e1b16;}
+.serif{font-family:'Source Serif 4',serif;}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+<header class="border-b border-[#e7e3db]">
+  <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="font-semibold text-lg">IP-SAKTI Sahayak</div>
+    <nav class="hidden sm:flex gap-6 text-sm text-[#414845]">
+      <a href="index.html">Assessment</a>
+      <a href="query.html" class="text-[#023429] font-medium">Query &amp; Opinion</a>
+      <a href="audit.html">Audit Log</a>
+    </nav>
+  </div>
+</header>
+
+<main class="flex-1 px-6 py-10">
+  <div class="max-w-5xl mx-auto flex flex-col lg:flex-row gap-10">
+    <section class="w-full lg:max-w-xl">
+      <div class="flex items-center gap-2 mb-4 text-xs text-[#414845]">
+        <span id="classification-chip" class="hidden px-2 py-0.5 rounded bg-[#f5ede4] border border-[#e7e3db]"></span>
+        <span id="jurisdiction-chip" class="px-2 py-0.5 rounded bg-[#f5ede4] border border-[#e7e3db]"></span>
+      </div>
+
+      <form id="query-form" class="mb-8">
+        <textarea id="query-input" rows="3" class="w-full border border-[#c0c8c4] rounded p-3 text-sm focus:outline-none focus:border-[#1f4b3f]"
+          placeholder="e.g. Can we patent an improved bioavailability method if we alter a classical herbal ratio?"></textarea>
+        <button type="submit" id="submit-btn" class="mt-3 px-5 py-2 rounded bg-[#1f4b3f] hover:bg-[#023429] text-white text-sm font-medium">Ask</button>
+      </form>
+
+      <div id="error-box" class="hidden mb-6 p-3 rounded bg-[#ffdad6] text-[#93000a] text-sm"></div>
+      <div id="answer-box"></div>
+
+      <div class="mt-10 pt-4 border-t border-[#e7e3db]">
+        <p class="text-xs italic serif text-[#414845]" id="disclaimer-text">
+          This is not legal advice. Consult a registered patent agent or AYUSH-recognized IP cell.
+        </p>
+      </div>
+    </section>
+
+    <aside class="w-full lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-l border-[#e7e3db] pt-6 lg:pt-0 lg:pl-6">
+      <div class="mb-4">
+        <span class="text-[11px] uppercase tracking-wider text-[#414845]">Retrieval confidence</span>
+        <div id="confidence-value" class="font-medium mt-1">—</div>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] uppercase tracking-wider text-[#414845]">Cited sources</span>
+          <span id="citation-count" class="text-xs text-[#717975]"></span>
+        </div>
+        <div id="citations-list" class="space-y-3"></div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<script>
+const classification = IPSAKTI.getClassification();
+const jurisdiction = IPSAKTI.getJurisdiction();
+
+document.getElementById("jurisdiction-chip").textContent = jurisdiction === "india" ? "India" : "International";
+if (classification && classification.category !== "unclassified") {
+  const chip = document.getElementById("classification-chip");
+  chip.textContent = IPSAKTI.categoryLabel(classification.category);
+  chip.classList.remove("hidden");
+}
+
+document.getElementById("query-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const query = document.getElementById("query-input").value.trim();
+  if (!query) return;
+
+  const btn = document.getElementById("submit-btn");
+  const errBox = document.getElementById("error-box");
+  const answerBox = document.getElementById("answer-box");
+  errBox.classList.add("hidden");
+  answerBox.innerHTML = `<p class="text-sm text-[#414845]">Retrieving and grounding an answer...</p>`;
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${window.API_BASE}/query`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        jurisdiction,
+        classification: (classification && classification.category !== "unclassified") ? classification : null,
+      }),
+    });
+
+    if (res.status === 429) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(`Rate limited — try again in ${body.retry_after_seconds ?? "a few"} seconds.`);
+    }
+    if (res.status === 504) {
+      throw new Error("The query took too long to answer. Try rephrasing or asking a narrower question.");
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Server returned ${res.status}`);
+    }
+
+    const data = await res.json();
+    renderAnswer(data);
+  } catch (err) {
+    errBox.textContent = err.message;
+    errBox.classList.remove("hidden");
+    answerBox.innerHTML = "";
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function renderAnswer(data) {
+  const answerBox = document.getElementById("answer-box");
+  answerBox.innerHTML = `<p class="serif text-lg leading-relaxed">${escapeHTML(data.answer)}</p>`;
+
+  document.getElementById("disclaimer-text").textContent = data.disclaimer;
+
+  const band = IPSAKTI.confidenceBand(data.confidence);
+  document.getElementById("confidence-value").textContent =
+    `${band} (${(data.confidence * 100).toFixed(1)}%)`;
+
+  const list = document.getElementById("citations-list");
+  document.getElementById("citation-count").textContent = `${data.citations.length} found`;
+
+  if (data.citations.length === 0) {
+    list.innerHTML = `<p class="text-xs text-[#717975]">No sources retrieved${data.abstained ? " — the system abstained rather than guess." : "."}</p>`;
+    return;
+  }
+
+  list.innerHTML = data.citations.map((c, i) => `
+    <div>
+      <button class="w-full text-left text-sm font-medium hover:text-[#1f4b3f] flex items-start gap-1.5" onclick="toggleCite(${i})">
+        <span id="icon-${i}" class="text-xs text-[#717975] mt-0.5">[+]</span>
+        <span>${escapeHTML(c.act_name)} — ${escapeHTML(c.section_ref)}</span>
+      </button>
+      <div id="content-${i}" class="hidden mt-1 pl-4 border-l border-[#e7e3db] text-xs text-[#414845] leading-relaxed">
+        <p class="italic">"${escapeHTML(c.chunk_text)}"</p>
+        ${c.source_url ? `<a href="${c.source_url}" target="_blank" class="text-[#1f4b3f] underline">Source</a>` : ""}
+        <p class="mt-1 text-[#717975]">
+          <button disabled title="Not yet implemented — would require an additional LLM call" class="underline decoration-dotted cursor-not-allowed">Show in plain English</button>
+        </p>
+      </div>
+    </div>
+  `).join("");
+}
+
+function toggleCite(i) {
+  const content = document.getElementById(`content-${i}`);
+  const icon = document.getElementById(`icon-${i}`);
+  const hidden = content.classList.toggle("hidden");
+  icon.textContent = hidden ? "[+]" : "[-]";
+}
+
+function escapeHTML(s) {
+  const d = document.createElement("div");
+  d.textContent = s ?? "";
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

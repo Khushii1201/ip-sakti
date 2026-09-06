@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Audit Log — IP-SAKTI Sahayak</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="config.js"></script>
+<style>body{font-family:'IBM Plex Sans',sans-serif;background:#fff8f2;color:#1e1b16;}</style>
+</head>
+<body class="min-h-screen flex flex-col">
+<header class="border-b border-[#e7e3db]">
+  <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="font-semibold text-lg">IP-SAKTI Sahayak</div>
+    <nav class="hidden sm:flex gap-6 text-sm text-[#414845]">
+      <a href="index.html">Assessment</a>
+      <a href="query.html">Query &amp; Opinion</a>
+      <a href="audit.html" class="text-[#023429] font-medium">Audit Log</a>
+    </nav>
+  </div>
+</header>
+
+<main class="flex-1 px-6 py-10">
+  <div class="max-w-5xl mx-auto">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-semibold">Regulatory Guidance Audit Log</h1>
+      <button id="export-csv" class="text-sm text-[#1f4b3f] underline">Export CSV</button>
+    </div>
+    <p class="text-sm text-[#414845] mb-6" id="row-count">Loading...</p>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm border-collapse">
+        <thead>
+          <tr class="border-b border-[#e7e3db] text-[11px] uppercase tracking-wider text-[#414845]">
+            <th class="py-2 pr-4">Query</th>
+            <th class="py-2 pr-4">Category</th>
+            <th class="py-2 pr-4">Jurisdiction</th>
+            <th class="py-2 pr-4">Confidence</th>
+            <th class="py-2 pr-4">Abstained</th>
+            <th class="py-2 pr-4">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="rows" class="divide-y divide-[#e7e3db]"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+let rows = [];
+
+async function load() {
+  try {
+    const res = await fetch(`${window.API_BASE}/audit/recent?limit=50`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    rows = await res.json();
+    render();
+  } catch (e) {
+    document.getElementById("row-count").textContent = `Could not load audit log: ${e.message}`;
+  }
+}
+
+function render() {
+  document.getElementById("row-count").textContent = `${rows.length} record${rows.length === 1 ? "" : "s"}`;
+  const tbody = document.getElementById("rows");
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-[#717975]">No queries logged yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td class="py-3 pr-4 max-w-xs truncate" title="${escapeHTML(r.query)}">${escapeHTML(r.query)}</td>
+      <td class="py-3 pr-4">${r.classification_branch ? IPSAKTI.categoryLabel(r.classification_branch) : "—"}</td>
+      <td class="py-3 pr-4 capitalize">${r.jurisdiction}</td>
+      <td class="py-3 pr-4">${IPSAKTI.confidenceBand(r.confidence_score)} (${(r.confidence_score * 100).toFixed(1)}%)</td>
+      <td class="py-3 pr-4">${r.abstained ? "Yes" : "No"}</td>
+      <td class="py-3 pr-4 text-xs text-[#717975]">${new Date(r.created_at).toLocaleString()}</td>
+    </tr>
+  `).join("");
+}
+
+document.getElementById("export-csv").addEventListener("click", () => {
+  if (rows.length === 0) return;
+  const header = "query,classification_branch,jurisdiction,confidence_score,abstained,created_at";
+  const lines = rows.map(r => [r.query, r.classification_branch, r.jurisdiction, r.confidence_score, r.abstained, r.created_at]
+    .map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
+  const blob = new Blob([[header, ...lines].join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "ip_sakti_audit_log.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+function escapeHTML(s) {
+  const d = document.createElement("div");
+  d.textContent = s ?? "";
+  return d.innerHTML;
+}
+
+load();
+</script>
+</body>
+</html>
