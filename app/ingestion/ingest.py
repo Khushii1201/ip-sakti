@@ -12,9 +12,8 @@ from pathlib import Path
 
 from app.ingestion.chunker import chunk_by_section
 from app.retrieval.db import get_pool
-from app.retrieval.embeddings import embed
+from app.retrieval.embeddings import embed_batch
 
-# (filename in corpus/, act_name, jurisdiction, category, source_url)
 CORPUS_MANIFEST = [
     ("patents_act_1970.txt", "Patents Act, 1970", "india", "patent_law", None),
     ("drugs_and_cosmetics_act_1940.txt", "Drugs & Cosmetics Act, 1940", "india", "asu_regulatory", None),
@@ -26,27 +25,33 @@ async def ingest_file(pool, filepath: Path, act_name: str, jurisdiction: str, ca
     full_text = filepath.read_text(encoding="utf-8")
     chunks = chunk_by_section(full_text, act_name)  # raises before we touch the DB if malformed
 
+    # Optimization: embed all chunks for this statute in one batched call
+    # instead of one model.encode() per chunk in a loop.
+    vectors = embed_batch([c["chunk_text"] for c in chunks])
+
     async with pool.acquire() as conn:
-        statute_id = await conn.fetchval(
-            """insert into statutes (act_name, jurisdiction, category, source_url, full_text)
-               values ($1, $2, $3, $4, $5) returning id""",
-            act_name,
-            jurisdiction,
-            category,
-            source_url,
-            full_text,
-        )
-        for c in chunks:
-            vec = str(embed(c["chunk_text"]))
-            await conn.execute(
-                """insert into chunks (statute_id, jurisdiction, category, section_ref, chunk_text, embedding)
-                   values ($1, $2, $3, $4, $5, $6::vector)""",
-                statute_id,
+        async with conn.transaction():
+            statute_id = await conn.fetchval(
+                """insert into statutes (act_name, jurisdiction, category, source_url, full_text)
+                   values ($1, $2, $3, $4, $5) returning id""",
+                act_name,
                 jurisdiction,
                 category,
-                c["section_ref"],
-                c["chunk_text"],
-                vec,
+                source_url,
+                full_text,
+            )
+            # executemany batches the inserts into far fewer round trips.
+            # Wrapped in the same transaction as the statute insert above,
+            # so a failure partway through doesn't leave an orphaned
+            # statute row with only some of its chunks.
+            rows = [
+                (statute_id, jurisdiction, category, c["section_ref"], c["chunk_text"], str(vec))
+                for c, vec in zip(chunks, vectors)
+            ]
+            await conn.executemany(
+                """insert into chunks (statute_id, jurisdiction, category, section_ref, chunk_text, embedding)
+                   values ($1, $2, $3, $4, $5, $6::vector)""",
+                rows,
             )
     print(f"Ingested {len(chunks)} chunks from {act_name}")
 

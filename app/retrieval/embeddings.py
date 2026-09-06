@@ -2,14 +2,7 @@
 Local sentence-transformers embeddings - not Cohere. Reasoning: this is a
 student hackathon budget, the corpus is small (a few thousand chunks for
 India-only), and a legal-domain-general embedding model at this scale is not
-your bottleneck - corpus correctness is. Don't spend your one scarce resource
-(time, not compute) wiring up a paid embedding API for a marginal quality gain
-you won't be able to prove out in 7 days anyway.
-
-If retrieval quality turns out to be the actual weak point later (you'll know
-because the confidence scores in rag.py stay low even on well-covered
-questions), swap EMBEDDING_MODEL for a larger local model before reaching for
-a paid API.
+your bottleneck - corpus correctness is.
 """
 
 from sentence_transformers import SentenceTransformer
@@ -35,3 +28,18 @@ def preload_model() -> None:
 def embed(text: str) -> list[float]:
     model = get_model()
     return model.encode(text, normalize_embeddings=True).tolist()
+
+
+def embed_batch(texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    """Batch-encode -- sentence-transformers processes a batch as one matmul
+    instead of N separate Python-level calls, which matters once ingestion
+    is doing this a few thousand times (the original ingest.py called
+    embed() once per chunk in a loop). Not benchmarked in this environment
+    (no network access to download the model here) -- verify the speed
+    difference yourself with `time python -m app.ingestion.ingest`.
+    """
+    if not texts:
+        return []
+    model = get_model()
+    vectors = model.encode(texts, batch_size=batch_size, normalize_embeddings=True, show_progress_bar=True)
+    return vectors.tolist()

@@ -1,10 +1,22 @@
+import logging
+
 import asyncpg
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 async def get_pool() -> asyncpg.Pool:
-    return await asyncpg.create_pool(settings.DATABASE_URL)
+    # Explicit pool sizing + command timeout instead of asyncpg's defaults --
+    # cheap insurance against pool exhaustion or one runaway query hanging
+    # the whole server during a demo. Tune via env vars if you need to.
+    return await asyncpg.create_pool(
+        settings.DATABASE_URL,
+        min_size=settings.DB_POOL_MIN_SIZE,
+        max_size=settings.DB_POOL_MAX_SIZE,
+        command_timeout=settings.DB_COMMAND_TIMEOUT_SECONDS,
+    )
 
 
 async def search_chunks(
@@ -26,10 +38,6 @@ async def search_chunks(
         params.append(category)
         next_param += 1
 
-    # top_k was previously an f-string directly in the SQL. It's not
-    # user-controlled today (comes from server-side settings), but
-    # parameterizing it is free and stops that from becoming a foot-gun the
-    # day someone exposes top_k as a query param.
     top_k_param = next_param
     params.append(top_k)
 
