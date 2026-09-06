@@ -33,6 +33,15 @@ class ClassificationResult(BaseModel):
     legal_pathway: str
     bda_flag: bool  # true if BDA Section 6 / NBA clearance applies - cross-cutting, not a category
     reasoning: str
+    # True whenever this result came out of the free-text-keyword heuristic
+    # branch (phytopharmaceutical vs proprietary ASU) or the no-match/
+    # insufficient-info branches. The frontend should render this as "flagged
+    # for human/legal review", not silently treat it the same as a clean
+    # deterministic branch (cosmetic, classical_asu, nutraceutical). Stress
+    # testing showed the keyword heuristic can't reliably handle negation or
+    # ambiguous phrasing, so its outputs need a visible confidence signal,
+    # not just a black-box category string.
+    needs_review: bool = False
 
 
 class Citation(BaseModel):
