@@ -1,16 +1,76 @@
 import asyncio
+import hashlib
 
 import asyncpg
 
+from app.cache import TTLCache
 from app.config import settings
 from app.llm.groq_client import generate_answer
 from app.retrieval.db import search_chunks
 from app.retrieval.embeddings import embed
+from app.retrieval.hybrid import hybrid_search
 
 ABSTAIN_MESSAGE = (
     "The corpus doesn't have a clear answer to this specific fact pattern. "
     "Please consult a registered patent agent or AYUSH-recognized IP cell."
 )
+
+_embedding_cache = TTLCache(max_size=settings.CACHE_MAX_SIZE, ttl_seconds=settings.CACHE_TTL_SECONDS)
+_answer_cache = TTLCache(max_size=settings.CACHE_MAX_SIZE, ttl_seconds=settings.CACHE_TTL_SECONDS)
+
+# Bounds concurrent embedding computation -- see config.py's
+# EMBED_CONCURRENCY_LIMIT comment for why unbounded concurrency doesn't
+# actually buy throughput on CPU-bound local inference.
+_embed_semaphore = asyncio.Semaphore(settings.EMBED_CONCURRENCY_LIMIT)
+
+# Single-flight map for in-progress embedding computations, keyed the same
+# way as _embedding_cache. This is NOT the same thing as the semaphore
+# above, and conflating them was a real bug caught by testing: a semaphore
+# with N permits lets N callers past the cache-check simultaneously before
+# any of them has finished and populated the cache, so N (not 1) identical
+# concurrent queries all triggered a real encode() call. Verified this with
+# 5 concurrent identical queries against EMBED_CONCURRENCY_LIMIT=4 -- 4 real
+# computations happened, not 1. A semaphore limits how many things run at
+# once; it does not deduplicate "the same thing running more than once".
+# This dict is what actually deduplicates: the second-and-later callers for
+# the same key await the first caller's in-flight future instead of
+# starting their own computation. Safe without a lock because there's no
+# `await` between checking this dict and inserting into it -- asyncio only
+# switches coroutines at an `await` point, so that check-then-insert is
+# atomic with respect to other coroutines on the same event loop.
+_embed_in_flight: dict[str, asyncio.Future] = {}
+
+
+def _answer_cache_key(query: str, jurisdiction: str, category: str | None) -> str:
+    raw = f"{jurisdiction}|{category or ''}|{query.strip().lower()}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+async def _embed_cached(query: str) -> list[float]:
+    key = query.strip().lower()
+    cached = _embedding_cache.get(key)
+    if cached is not None:
+        return cached
+
+    existing = _embed_in_flight.get(key)
+    if existing is not None:
+        return await existing
+
+    loop = asyncio.get_event_loop()
+    fut: asyncio.Future = loop.create_future()
+    _embed_in_flight[key] = fut
+    try:
+        async with _embed_semaphore:
+            vector = await asyncio.to_thread(embed, query)
+        _embedding_cache.set(key, vector)
+        fut.set_result(vector)
+        return vector
+    except Exception as exc:
+        fut.set_exception(exc)
+        raise
+    finally:
+        if _embed_in_flight.get(key) is fut:
+            del _embed_in_flight[key]
 
 
 async def answer_query(
@@ -19,37 +79,44 @@ async def answer_query(
     jurisdiction: str,
     category: str | None = None,
 ) -> dict:
-    if not pool:
-        return {"answer": ABSTAIN_MESSAGE, "citations": [], "confidence": 0.0, "abstained": True}
+    cache_key = _answer_cache_key(query, jurisdiction, category)
+    cached_answer = _answer_cache.get(cache_key)
+    if cached_answer is not None:
+        return cached_answer
 
-    # embed() and generate_answer() are both synchronous, CPU/network-bound
-    # calls being invoked directly inside an async handler -- that blocks the
-    # whole event loop for their entire duration, so one slow request stalls
-    # every other concurrent request on the same worker. Fine with one
-    # person testing locally; a real risk with several judges hitting /query
-    # around the same time on demo day. asyncio.to_thread hands each call to
-    # a worker thread instead.
-    query_embedding = await asyncio.to_thread(embed, query)
-    rows = await search_chunks(pool, query_embedding, jurisdiction, category, settings.RETRIEVAL_TOP_K)
+    query_embedding = await _embed_cached(query)
+
+    if settings.HYBRID_SEARCH_ENABLED:
+        rows = await hybrid_search(
+            pool, query, query_embedding, jurisdiction, category,
+            settings.RETRIEVAL_TOP_K, search_chunks,
+        )
+    else:
+        rows = await search_chunks(pool, query_embedding, jurisdiction, category, settings.RETRIEVAL_TOP_K)
 
     if not rows:
-        return {"answer": ABSTAIN_MESSAGE, "citations": [], "confidence": 0.0, "abstained": True}
+        result = {"answer": ABSTAIN_MESSAGE, "citations": [], "confidence": 0.0, "abstained": True}
+        _answer_cache.set(cache_key, result)
+        return result
 
-    # Confidence = mean similarity of top-3 retrieved chunks. Crude, but honest:
-    # it's tied to actual retrieval quality, not a made-up number the LLM reports
-    # about itself. Tune CONFIDENCE_THRESHOLD against real queries before demo day.
-    top_scores = [r["score"] for r in rows[:3]]
-    confidence = sum(top_scores) / len(top_scores)
+    rows = [dict(r) for r in rows]
+
+    top_scores = [s for s in (r.get("score") for r in rows[:3]) if s is not None]
+    confidence = sum(top_scores) / len(top_scores) if top_scores else 0.0
 
     if confidence < settings.CONFIDENCE_THRESHOLD:
-        return {
+        result = {
             "answer": ABSTAIN_MESSAGE,
-            "citations": [dict(r) for r in rows],
+            "citations": rows,
             "confidence": confidence,
             "abstained": True,
         }
+        _answer_cache.set(cache_key, result)
+        return result
 
-    sources = [dict(r) for r in rows]
+    sources = rows
     answer_text = await asyncio.to_thread(generate_answer, query, sources)
 
-    return {"answer": answer_text, "citations": sources, "confidence": confidence, "abstained": False}
+    result = {"answer": answer_text, "citations": sources, "confidence": confidence, "abstained": False}
+    _answer_cache.set(cache_key, result)
+    return result
