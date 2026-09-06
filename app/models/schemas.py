@@ -28,6 +28,14 @@ class ClassificationResult(BaseModel):
     bda_flag: bool
     reasoning: str
     needs_review: bool = False
+    # Additive fields -- default None so any existing frontend code that
+    # doesn't know about them keeps working unchanged (None renders as
+    # "nothing to show", not a crash).  Only populated when the
+    # phytopharmaceutical-keyword branch fires; a UI can render
+    # "Flagged: <keyword>" + snippet when present, and fall back to just
+    # `reasoning` otherwise.
+    matched_keyword: Optional[str] = None
+    review_snippet: Optional[str] = None
 
 
 class Citation(BaseModel):
@@ -39,7 +47,7 @@ class Citation(BaseModel):
     # Optional, not required: hybrid retrieval can surface a chunk that only
     # matched via BM25 (exact-term match), which never computed a dense
     # cosine similarity at all. Making this required broke serialization the
-    # moment such a row reached the API response - confirmed by testing
+    # moment such a row reached the API response -- confirmed by testing
     # Citation(**row_without_score) directly, not just reasoned about.
     score: Optional[float] = None
 

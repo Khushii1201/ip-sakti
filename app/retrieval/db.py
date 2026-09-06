@@ -1,6 +1,7 @@
 import logging
 
 import asyncpg
+from pgvector.asyncpg import register_vector
 
 from app.config import settings
 
@@ -8,7 +9,20 @@ logger = logging.getLogger(__name__)
 
 
 async def get_pool() -> asyncpg.Pool:
-    async def _init_connection(conn):
+    # `init` runs on every connection the pool opens (including connections
+    # opened later to replace a dropped one) -- registering per-connection
+    # here is the only place guaranteed to fire before that connection is
+    # ever handed out with a `vector` parameter.  Registering once on a
+    # single connection and assuming it "sticks" for the whole pool is the
+    # mistake that makes this bug intermittent rather than obvious: it works
+    # on whichever connection you tested with and silently fails on the next
+    # one the pool hands out.
+    #
+    # We also keep the ivfflat.probes setting from the previous version:
+    # it controls ANN recall vs speed at query time and should be set on
+    # every connection for the same reason as register_vector.
+    async def _init_connection(conn: asyncpg.Connection) -> None:
+        await register_vector(conn)
         await conn.execute(f"SET ivfflat.probes = {settings.PGVECTOR_PROBES}")
 
     return await asyncpg.create_pool(
@@ -26,9 +40,21 @@ async def search_chunks(
     jurisdiction: str,
     category: str | None,
     top_k: int,
-):
+) -> list[asyncpg.Record]:
+    """Jurisdiction (and optionally category) is a hard SQL WHERE filter, not
+    a prompt instruction -- an India-mode query must be structurally unable to
+    retrieve international-mode chunks regardless of what the LLM does."""
+    if top_k < 1:
+        raise ValueError(f"top_k must be >= 1, got {top_k}")
+
+    # query_embedding is passed as a plain list[float]; asyncpg will encode it
+    # correctly now that register_vector has been called on every connection.
+    # The ::vector casts that appeared in earlier SQL are intentionally gone --
+    # with the codec registered, the explicit cast is redundant and in some
+    # asyncpg/pgvector version combinations actively conflicts with the
+    # registered type (tries to cast an already-typed value).
     filters = ["jurisdiction = $2"]
-    params: list = [str(query_embedding), jurisdiction]
+    params: list = [query_embedding, jurisdiction]
     next_param = 3
     if category:
         filters.append(f"category = ${next_param}")
@@ -42,11 +68,11 @@ async def search_chunks(
     sql = f"""
         select c.id, c.chunk_text, c.section_ref, c.jurisdiction, c.category,
                s.act_name, s.source_url,
-               1 - (c.embedding <=> $1::vector) as score
+               1 - (c.embedding <=> $1) as score
         from chunks c
         join statutes s on s.id = c.statute_id
         where {where_clause}
-        order by c.embedding <=> $1::vector
+        order by c.embedding <=> $1
         limit ${top_k_param}
     """
     async with pool.acquire() as conn:
@@ -54,10 +80,14 @@ async def search_chunks(
     return rows
 
 
-async def fetch_all_chunks_for_bm25(pool: asyncpg.Pool, jurisdiction: str, category: str | None):
+async def fetch_all_chunks_for_bm25(
+    pool: asyncpg.Pool,
+    jurisdiction: str,
+    category: str | None,
+) -> list[dict]:
     """Pulls every chunk in scope (same jurisdiction/category filter as
     search_chunks) so hybrid.py builds a BM25 index over exactly the set
-    dense search is allowed to return from - never a broader corpus than
+    dense search is allowed to return from -- never a broader corpus than
     the hard filter permits."""
     filters = ["jurisdiction = $1"]
     params: list = [jurisdiction]

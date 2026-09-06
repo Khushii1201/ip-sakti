@@ -1,21 +1,32 @@
 """
-Local sentence-transformers embeddings - not Cohere. Reasoning: this is a
-student hackathon budget, the corpus is small (a few thousand chunks for
-India-only), and a legal-domain-general embedding model at this scale is not
-your bottleneck - corpus correctness is.
+Local sentence-transformers embeddings -- not Cohere. This is a student
+hackathon budget, the corpus is small, and a legal-domain-general embedding
+model at this scale is not your bottleneck -- corpus correctness is.
 """
+
+import threading
 
 from sentence_transformers import SentenceTransformer
 
 from app.config import settings
 
-_model = None
+_model: SentenceTransformer | None = None
+# Guards first-load only. encode() calls after that are thread-safe
+# (SentenceTransformer.encode is stateless given a fixed model).
+_model_lock = threading.Lock()
 
 
 def get_model() -> SentenceTransformer:
     global _model
+    # Double-checked locking: the outer check avoids acquiring the lock on
+    # every call once the model is loaded (the common path). The inner check
+    # is the safety net -- if two threads both pass the outer None check
+    # before either enters the lock, only one of them will actually load the
+    # model; the other will find it already set when it gets the lock.
     if _model is None:
-        _model = SentenceTransformer(settings.EMBEDDING_MODEL)
+        with _model_lock:
+            if _model is None:
+                _model = SentenceTransformer(settings.EMBEDDING_MODEL)
     return _model
 
 
@@ -31,15 +42,16 @@ def embed(text: str) -> list[float]:
 
 
 def embed_batch(texts: list[str], batch_size: int = 32) -> list[list[float]]:
-    """Batch-encode -- sentence-transformers processes a batch as one matmul
-    instead of N separate Python-level calls, which matters once ingestion
-    is doing this a few thousand times (the original ingest.py called
-    embed() once per chunk in a loop). Not benchmarked in this environment
-    (no network access to download the model here) -- verify the speed
-    difference yourself with `time python -m app.ingestion.ingest`.
-    """
+    """Batch-encode -- one matmul instead of N Python-level calls. Not
+    benchmarked in this sandbox (no network to fetch the model here) --
+    time it yourself with `time python -m app.ingestion.ingest`."""
     if not texts:
         return []
     model = get_model()
-    vectors = model.encode(texts, batch_size=batch_size, normalize_embeddings=True, show_progress_bar=True)
+    vectors = model.encode(
+        texts,
+        batch_size=batch_size,
+        normalize_embeddings=True,
+        show_progress_bar=True,
+    )
     return vectors.tolist()
