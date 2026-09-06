@@ -6,26 +6,34 @@ that "usually gets it right." If you're tempted to replace this with an LLM
 call later, don't -- keep the LLM confined to free-text intent parsing that
 FEEDS these structured answers, never to making the branching decision itself.
 
-Stress-test findings fixed here (see chat writeup for full repro):
+Stress-test findings fixed here (see chat writeup for full repros):
 1. Substring bug: naive `keyword in desc` matched "purified" inside
-   "unpurified" -- a description that explicitly DENIES purification got
-   classified as phytopharmaceutical. Fixed with word-boundary regex.
-2. Negation-blindness: "not a standardized extract" still contains the
-   literal phrase "standardized extract", so word-boundary matching alone
-   isn't enough. Added a small negation-window check for the clearest cases
-   (explicit "not/without/no X" immediately before the keyword).
-3. Silent guessing on missing free text: when the disease-claim branch needed
-   the free-text description to pick phytopharmaceutical vs proprietary ASU
-   and got None/"", it was silently defaulting to proprietary_asu -- which
-   directly contradicts this file's own stated principle (see branch 5:
-   "do not force a guess into a legal category"). Now returns unclassified
-   and asks for the description instead.
+   "unpurified". Fixed with word-boundary regex.
+2. Pre-keyword negation: "not a standardized extract" still contains the
+   literal phrase. Fixed with a negation-marker scan in the few words
+   immediately BEFORE the keyword.
+3. Silent guessing on missing free text: an empty description in the branch
+   that needs it to disambiguate phytopharmaceutical vs proprietary ASU was
+   silently defaulting to proprietary_asu, contradicting this file's own
+   branch-5 principle ("do not force a guess into a legal category"). Now
+   returns unclassified and asks for the description instead.
+4. Post-keyword contrast/negation: "an isolated compound approach, but we
+   rejected it in favor of whole-herb powder" -- the negation comes AFTER
+   the keyword, not before, so fix #2 alone doesn't catch it. Added a
+   second scan for contrast/rejection markers in the words immediately
+   AFTER the keyword.
 
-None of this makes the heuristic trustworthy -- it still can't catch
-"we considered an isolated compound but rejected it," which needs real NLP,
-not a keyword scan. That's why branch 2 always sets needs_review=True: every
-result out of this branch should be read as "best guess from a fuzzy
-heuristic," not a verified classification. Say that plainly to judges.
+Be honest with yourself about what #4 actually is: a second keyword list,
+not real negation parsing. It will have both false negatives (contrast
+phrased in a way that doesn't use one of CONTRAST_MARKERS) and a small risk
+of new false positives -- a genuine positive case that happens to contain an
+unrelated "but" clause nearby, e.g. "an isolated compound was used, but its
+origin is undisclosed" -- our own test showed this gets wrongly flagged as
+negated. That's why EVERY output of this branch carries needs_review=True
+regardless of which way the keyword check goes -- the heuristic is good
+enough to route toward "check this one by hand", not good enough to trust
+unsupervised. Don't let the added sophistication here read as "solved" in a
+judge Q&A; it isn't.
 """
 
 import re
@@ -34,13 +42,25 @@ from app.models.schemas import ClassificationResult, ClassifierAnswers
 
 PHYTOPHARM_KEYWORDS = ("purified", "standardized extract", "bioactive marker", "isolated compound")
 
-# Heuristic only -- catches the two clearest negation patterns seen in stress
-# testing ("not a purified extract", "without any isolated compound"). Does
-# NOT catch negation that comes after the keyword ("isolated compound...but
-# rejected it") or negation several clauses away. When in doubt this errs
-# toward still flagging needs_review=True rather than trusting a clean match.
+# Pre-keyword negation: "not a purified extract", "without any isolated
+# compound". Heuristic -- catches explicit negation immediately before the
+# keyword, nothing cleverer.
 NEGATION_MARKERS = ("not", "non", "without", "no", "isn't", "wasn't", "never")
 NEGATION_WINDOW_WORDS = 4
+
+# Post-keyword contrast/rejection: "isolated compound approach but rejected
+# it", "standardized extract, however we abandoned this route". Distinct
+# from NEGATION_MARKERS on purpose -- "but", "however", "instead" don't
+# negate a claim the way "not" does, they signal the sentence is about to
+# walk it back. Scanning after the keyword instead of before is what makes
+# this catch a genuinely different failure mode than fix #2 -- see the
+# module docstring for the false-positive risk this introduces.
+CONTRAST_MARKERS = (
+    "but", "however", "instead", "rejected", "reject", "abandoned",
+    "avoided", "ruled out", "not used", "in favor of", "favour of",
+    "decided against", "opted against",
+)
+CONTRAST_WINDOW_WORDS = 8
 
 
 def _find_keyword(desc: str, keyword: str) -> re.Match | None:
@@ -48,19 +68,35 @@ def _find_keyword(desc: str, keyword: str) -> re.Match | None:
     return re.search(r"\b" + re.escape(keyword) + r"\b", desc)
 
 
-def _looks_negated(desc: str, match_start: int) -> bool:
-    """True if a negation marker appears in the few words immediately before
-    the matched keyword. Best-effort only -- see module docstring."""
-    preceding_text = desc[:match_start]
-    preceding_words = re.findall(r"[a-z']+", preceding_text)[-NEGATION_WINDOW_WORDS:]
-    return any(marker in preceding_words for marker in NEGATION_MARKERS)
+def _words_before(desc: str, pos: int, n: int) -> list[str]:
+    return re.findall(r"[a-z']+", desc[:pos])[-n:]
+
+
+def _text_after(desc: str, pos: int, n_words: int) -> str:
+    words = re.findall(r"\S+", desc[pos:])[:n_words]
+    return " ".join(words)
+
+
+def _looks_negated(desc: str, match_start: int, match_end: int) -> bool:
+    """Best-effort check for negation/contrast around the matched keyword --
+    scans a short window on both sides. See module docstring for what this
+    does and doesn't catch."""
+    preceding = _words_before(desc, match_start, NEGATION_WINDOW_WORDS)
+    if any(marker in preceding for marker in NEGATION_MARKERS):
+        return True
+
+    following = _text_after(desc, match_end, CONTRAST_WINDOW_WORDS)
+    if any(marker in following for marker in CONTRAST_MARKERS):
+        return True
+
+    return False
 
 
 def _matches_phytopharm_keywords(free_text_description: str | None) -> bool:
     desc = (free_text_description or "").lower()
     for kw in PHYTOPHARM_KEYWORDS:
         m = _find_keyword(desc, kw)
-        if m and not _looks_negated(desc, m.start()):
+        if m and not _looks_negated(desc, m.start(), m.end()):
             return True
     return False
 
@@ -73,9 +109,7 @@ def classify(answers: ClassifierAnswers) -> ClassificationResult:
     # and that's deliberate, not an oversight -- "cosmetic" is a claim-based
     # category (no disease claim = not a drug at all under D&C Act), so it's
     # orthogonal to whether the formulation happens to follow a classical
-    # text. A classical topical product with zero disease claim genuinely is
-    # a cosmetic, not a "classical ASU drug." Be ready to defend this
-    # ordering explicitly if a judge probes it.
+    # text. Be ready to defend this ordering explicitly if a judge probes it.
     if answers.internal_or_external == "external" and not answers.makes_disease_claim:
         return ClassificationResult(
             category="cosmetic",
@@ -89,9 +123,8 @@ def classify(answers: ClassifierAnswers) -> ClassificationResult:
         raw_desc = (answers.free_text_description or "").strip()
 
         # Fix #3: don't silently guess when the disambiguating input is
-        # missing. This is the one branch that legally hinges on free text,
-        # so an empty description is genuinely insufficient information --
-        # treat it the same way branch 5 treats an unmatched pattern.
+        # missing -- treat it the same way branch 5 treats an unmatched
+        # pattern rather than defaulting to a specific legal category.
         if not raw_desc:
             return ClassificationResult(
                 category="unclassified",
@@ -145,7 +178,7 @@ def classify(answers: ClassifierAnswers) -> ClassificationResult:
             reasoning="Internal use, wellness claim, no disease claim.",
         )
 
-    # 5. Nothing matched cleanly -- do not force a guess into a legal category.
+    # 5. Nothing matched cleanly - do not force a guess into a legal category.
     return ClassificationResult(
         category="unclassified",
         legal_pathway="Insufficient information to classify safely - ask follow-up questions before routing.",
