@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IP-SAKTI Sahayak</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="config.js"></script>
+<style>body{font-family:'IBM Plex Sans',sans-serif;background:#fff8f2;color:#1e1b16;}
+.serif{font-family:'Source Serif 4',serif;}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+<header class="border-b border-[#e7e3db]">
+  <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div>
+      <div class="font-semibold text-lg leading-none">IP-SAKTI Sahayak</div>
+      <div class="text-[11px] uppercase tracking-wider text-[#414845] mt-1">AYUSH IP Guidance</div>
+    </div>
+    <nav class="hidden sm:flex gap-6 text-sm text-[#414845]">
+      <a href="index.html" class="text-[#023429] font-medium">Assessment</a>
+      <a href="query.html">Query &amp; Opinion</a>
+      <a href="audit.html">Audit Log</a>
+    </nav>
+  </div>
+</header>
+
+<main class="flex-1 flex items-center justify-center px-6 py-16">
+  <div class="w-full max-w-xl">
+    <p class="serif text-xl leading-relaxed mb-8">
+      Statutory intellectual-property and regulatory classification for Ayurvedic and traditional formulations under Indian law.
+    </p>
+    <div class="h-px bg-[#e7e3db] mb-8"></div>
+
+    <label class="text-[11px] uppercase tracking-wider text-[#414845] block mb-2">Jurisdiction</label>
+    <div class="inline-flex p-1 bg-[#f5ede4] rounded border border-[#c0c8c4] mb-2" id="jurisdiction-toggle">
+      <button data-j="india" class="px-4 py-1.5 rounded text-sm font-medium">India</button>
+      <button data-j="international" class="px-4 py-1.5 rounded text-sm font-medium">International</button>
+    </div>
+    <p class="text-xs text-[#414845] mb-8" id="jurisdiction-note"></p>
+
+    <a href="wizard.html" class="inline-block px-6 py-2.5 bg-[#1f4b3f] hover:bg-[#023429] text-white text-sm font-medium rounded transition-colors">
+      Start assessment
+    </a>
+
+    <div class="h-px bg-[#e7e3db] my-8"></div>
+    <p class="text-xs text-[#414845]">
+      Concordance with the Patents Act 1970, Drugs &amp; Cosmetics Act 1940, and Biological Diversity Act 2002.
+    </p>
+  </div>
+</main>
+
+<footer class="border-t border-[#e7e3db] py-4">
+  <div class="max-w-5xl mx-auto px-6 text-xs text-[#414845] italic serif">
+    This is not legal advice. Consult a registered patent agent or AYUSH-recognized IP cell.
+  </div>
+</footer>
+
+<script>
+  const notes = {
+    india: "India filter restricts retrieval to the india jurisdiction corpus and applies the Section 3(p) / BDA Section 6 checks.",
+    international: "International filter restricts retrieval to the international-treaty corpus (WIPO GRATK, TRIPS, Nagoya)."
+  };
+  function render() {
+    const j = IPSAKTI.getJurisdiction();
+    document.querySelectorAll('#jurisdiction-toggle button').forEach(b => {
+      const active = b.dataset.j === j;
+      b.className = "px-4 py-1.5 rounded text-sm font-medium transition-colors " +
+        (active ? "bg-[#1f4b3f] text-white" : "text-[#414845] hover:text-[#1e1b16]");
+    });
+    document.getElementById('jurisdiction-note').textContent = notes[j];
+  }
+  document.querySelectorAll('#jurisdiction-toggle button').forEach(b => {
+    b.addEventListener('click', () => { IPSAKTI.setJurisdiction(b.dataset.j); render(); });
+  });
+  render();
+</script>
+</body>
+</html>
