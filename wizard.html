@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Assessment — IP-SAKTI Sahayak</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="config.js"></script>
+<style>body{font-family:'IBM Plex Sans',sans-serif;background:#fff8f2;color:#1e1b16;}
+.serif{font-family:'Source Serif 4',serif;}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+<header class="border-b border-[#e7e3db]">
+  <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="font-semibold text-lg">IP-SAKTI Sahayak</div>
+    <nav class="hidden sm:flex gap-6 text-sm text-[#414845]">
+      <a href="index.html" class="text-[#023429] font-medium">Assessment</a>
+      <a href="query.html">Query &amp; Opinion</a>
+      <a href="audit.html">Audit Log</a>
+    </nav>
+  </div>
+</header>
+
+<main class="flex-1 px-6 py-12">
+  <div class="max-w-xl mx-auto">
+    <div class="flex items-center justify-between text-[11px] uppercase tracking-wider text-[#414845] mb-2">
+      <span>Statutory assessment flow</span>
+      <span id="step-indicator" class="text-[#023429] font-semibold"></span>
+    </div>
+    <div class="h-px bg-[#e7e3db] mb-8"></div>
+
+    <div id="step-container"></div>
+
+    <div id="error-box" class="hidden mt-6 p-3 rounded bg-[#ffdad6] text-[#93000a] text-sm"></div>
+
+    <div class="flex items-center justify-between pt-8 mt-8 border-t border-[#e7e3db]">
+      <button id="back-btn" class="text-sm text-[#414845] hover:text-[#1e1b16]">← Back</button>
+      <button id="next-btn" class="px-5 py-2 rounded bg-[#1f4b3f] hover:bg-[#023429] text-white text-sm font-medium">Continue</button>
+    </div>
+  </div>
+</main>
+
+<script>
+const answers = {
+  internal_or_external: null,
+  follows_classical_text_exactly: null,
+  makes_disease_claim: null,
+  uses_indian_biological_resource: null,
+  free_text_description: "",
+};
+
+// Base 4 steps always run. Step 5 (free text) is inserted dynamically only
+// when makes_disease_claim=true and follows_classical_text_exactly=false --
+// that is the exact branch in classifier.py that needs it to disambiguate
+// phytopharmaceutical vs. patent_proprietary_asu.
+const baseSteps = ["internal_or_external", "follows_classical_text_exactly", "makes_disease_claim", "uses_indian_biological_resource"];
+let stepIndex = 0;
+
+function currentSteps() {
+  const steps = [...baseSteps];
+  if (answers.makes_disease_claim === true && answers.follows_classical_text_exactly === false) {
+    steps.push("free_text_description");
+  }
+  return steps;
+}
+
+function renderStep() {
+  const steps = currentSteps();
+  const key = steps[stepIndex];
+  document.getElementById("step-indicator").textContent = `Stage ${stepIndex + 1} / ${steps.length}`;
+  document.getElementById("back-btn").style.visibility = stepIndex === 0 ? "hidden" : "visible";
+  document.getElementById("next-btn").textContent = stepIndex === steps.length - 1 ? "Submit" : "Continue";
+
+  const c = document.getElementById("step-container");
+  if (key === "internal_or_external") {
+    c.innerHTML = boolChoiceHTML(
+      "Is the product for internal or external use?",
+      "Internal (taken/consumed)", "external_no", "External (applied to skin/surface)"
+    );
+    // this field is a string enum, not bool -- wire manually below
+    c.querySelector('[data-val="yes"]').dataset.val = "internal";
+    c.querySelector('[data-val="external_no"]').dataset.val = "external";
+    bindChoice("internal_or_external", v => v);
+  } else if (key === "follows_classical_text_exactly") {
+    c.innerHTML = boolChoiceHTML(
+      "Does the product follow a named classical text exactly (e.g. Charaka Samhita, Sushruta Samhita)?",
+      "Yes — exact classical replication", "no", "No — modified, new combination, or new indication"
+    );
+    bindChoice("follows_classical_text_exactly", v => v === "yes");
+  } else if (key === "makes_disease_claim") {
+    c.innerHTML = boolChoiceHTML(
+      "Does the product make a disease-cure or therapeutic claim?",
+      "Yes", "no", "No — wellness/cosmetic claim only"
+    );
+    bindChoice("makes_disease_claim", v => v === "yes");
+  } else if (key === "uses_indian_biological_resource") {
+    c.innerHTML = boolChoiceHTML(
+      "Is the product made from a biological resource sourced from India?",
+      "Yes", "no", "No"
+    );
+    c.querySelector("p.note")?.remove();
+    const note = document.createElement("p");
+    note.className = "note text-xs text-[#414845] mt-4";
+    note.textContent = "If yes, National Biodiversity Authority clearance under BDA Section 6 will be flagged as required before any patent filing.";
+    c.appendChild(note);
+    bindChoice("uses_indian_biological_resource", v => v === "yes");
+  } else if (key === "free_text_description") {
+    c.innerHTML = `
+      <h1 class="serif text-xl leading-snug mb-3">Briefly describe the formulation process.</h1>
+      <p class="text-sm text-[#414845] mb-4">Needed because a disease claim combined with a non-classical formulation could be either a Phytopharmaceutical or a Proprietary ASU medicine — the wording of this description determines which.</p>
+      <textarea id="free-text-input" rows="5" class="w-full border border-[#c0c8c4] rounded p-3 text-sm focus:outline-none focus:border-[#1f4b3f]" placeholder="e.g. purified, standardized extract with four assayed bioactive markers...">${answers.free_text_description || ""}</textarea>
+    `;
+  }
+}
+
+function boolChoiceHTML(question, labelA, valB, labelB) {
+  return `
+    <h1 class="serif text-xl leading-snug mb-6">${question}</h1>
+    <div class="flex flex-col gap-3">
+      <label class="flex items-center gap-3 p-4 border border-[#c0c8c4] rounded cursor-pointer hover:border-[#1f4b3f] choice-label" data-val="yes">
+        <input type="radio" name="choice" class="accent-[#1f4b3f]"/>
+        <span class="text-sm font-medium">${labelA}</span>
+      </label>
+      <label class="flex items-center gap-3 p-4 border border-[#c0c8c4] rounded cursor-pointer hover:border-[#1f4b3f] choice-label" data-val="${valB}">
+        <input type="radio" name="choice" class="accent-[#1f4b3f]"/>
+        <span class="text-sm font-medium">${labelB}</span>
+      </label>
+    </div>
+  `;
+}
+
+function bindChoice(field, mapFn) {
+  document.querySelectorAll(".choice-label").forEach(label => {
+    label.addEventListener("click", () => {
+      document.querySelectorAll(".choice-label input").forEach(i => i.checked = false);
+      label.querySelector("input").checked = true;
+      document.querySelectorAll(".choice-label").forEach(l => l.classList.remove("border-[#1f4b3f]", "border-2"));
+      label.classList.add("border-[#1f4b3f]", "border-2");
+      answers[field] = mapFn(label.dataset.val);
+    });
+  });
+}
+
+function showError(msg) {
+  const box = document.getElementById("error-box");
+  box.textContent = msg;
+  box.classList.remove("hidden");
+}
+function clearError() {
+  document.getElementById("error-box").classList.add("hidden");
+}
+
+async function submitClassification() {
+  clearError();
+  const btn = document.getElementById("next-btn");
+  btn.disabled = true;
+  btn.textContent = "Classifying...";
+  try {
+    const res = await fetch(`${window.API_BASE}/classify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        internal_or_external: answers.internal_or_external,
+        follows_classical_text_exactly: !!answers.follows_classical_text_exactly,
+        makes_disease_claim: !!answers.makes_disease_claim,
+        uses_indian_biological_resource: !!answers.uses_indian_biological_resource,
+        free_text_description: answers.free_text_description || null,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Server returned ${res.status}`);
+    }
+    const result = await res.json();
+    IPSAKTI.setClassification(result);
+    window.location.href = "result.html";
+  } catch (e) {
+    showError(`Could not classify: ${e.message}. Is the backend running at ${window.API_BASE}?`);
+    btn.disabled = false;
+    btn.textContent = "Submit";
+  }
+}
+
+document.getElementById("back-btn").addEventListener("click", () => {
+  if (stepIndex > 0) { stepIndex--; renderStep(); }
+});
+document.getElementById("next-btn").addEventListener("click", () => {
+  const steps = currentSteps();
+  const key = steps[stepIndex];
+  if (key === "free_text_description") {
+    answers.free_text_description = document.getElementById("free-text-input").value.trim();
+  } else if (answers[key] === null) {
+    showError("Please select an answer before continuing.");
+    return;
+  }
+  clearError();
+  if (stepIndex < steps.length - 1) {
+    stepIndex++;
+    renderStep();
+  } else {
+    submitClassification();
+  }
+});
+
+renderStep();
+</script>
+</body>
+</html>

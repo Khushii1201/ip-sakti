@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Assessment Result — IP-SAKTI Sahayak</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="config.js"></script>
+<style>body{font-family:'IBM Plex Sans',sans-serif;background:#fff8f2;color:#1e1b16;}
+.serif{font-family:'Source Serif 4',serif;}
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+<header class="border-b border-[#e7e3db]">
+  <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="font-semibold text-lg">IP-SAKTI Sahayak</div>
+    <nav class="hidden sm:flex gap-6 text-sm text-[#414845]">
+      <a href="index.html" class="text-[#023429] font-medium">Assessment</a>
+      <a href="query.html">Query &amp; Opinion</a>
+      <a href="audit.html">Audit Log</a>
+    </nav>
+  </div>
+</header>
+
+<div id="bda-banner" class="hidden w-full bg-[#b3261e] text-white py-3 px-6 text-center text-sm uppercase tracking-wide"></div>
+
+<main class="flex-1 px-6 py-16">
+  <div id="content" class="max-w-xl mx-auto"></div>
+</main>
+
+<footer class="border-t border-[#e7e3db] py-4">
+  <div class="max-w-5xl mx-auto px-6 text-xs text-[#414845] italic serif">
+    This is not legal advice. Consult a registered patent agent or AYUSH-recognized IP cell.
+  </div>
+</footer>
+
+<script>
+const result = IPSAKTI.getClassification();
+const content = document.getElementById("content");
+
+if (!result) {
+  content.innerHTML = `
+    <p class="serif text-lg mb-6">No assessment has been run yet.</p>
+    <a href="wizard.html" class="inline-block px-5 py-2 rounded bg-[#1f4b3f] hover:bg-[#023429] text-white text-sm font-medium">Start assessment</a>
+  `;
+} else {
+  if (result.bda_flag) {
+    const banner = document.getElementById("bda-banner");
+    banner.textContent = "National Biodiversity Authority (NBA) clearance required under Section 6 of the Biological Diversity Act, 2002 before any patent filing.";
+    banner.classList.remove("hidden");
+  }
+
+  let reviewHTML = "";
+  if (result.needs_review) {
+    reviewHTML = `
+      <div class="border-l-2 border-[#a6740a] pl-4 py-2 mb-8">
+        <div class="text-[11px] uppercase tracking-wider text-[#a6740a] font-semibold mb-1">Flagged for manual review — see note below</div>
+        ${result.matched_keyword ? `
+          <p class="text-sm text-[#414845]">Matched descriptor: "<span class="font-medium">${escapeHTML(result.matched_keyword)}</span>"</p>
+          <p class="text-sm text-[#414845] mt-1">${escapeHTML(result.review_snippet || "")}</p>
+        ` : `<p class="text-sm text-[#414845]">${escapeHTML(result.reasoning)}</p>`}
+      </div>
+    `;
+  }
+
+  content.innerHTML = `
+    <div class="text-[11px] uppercase tracking-wider text-[#2d694d] font-semibold mb-2">Verified classification determination</div>
+    <h1 class="text-3xl font-semibold text-[#023429] mb-6">${IPSAKTI.categoryLabel(result.category)}</h1>
+    <p class="serif text-lg leading-relaxed mb-3">${escapeHTML(result.legal_pathway)}</p>
+    <p class="text-sm text-[#414845] mb-8">Based on: ${escapeHTML(result.reasoning)}</p>
+    ${reviewHTML}
+    <div class="flex gap-4 pt-6 border-t border-[#e7e3db]">
+      <a href="query.html" class="px-5 py-2 rounded bg-[#1f4b3f] hover:bg-[#023429] text-white text-sm font-medium">Ask a follow-up question</a>
+      <a href="wizard.html" class="px-5 py-2 rounded border border-[#c0c8c4] text-sm font-medium hover:bg-[#f5ede4]">Run another assessment</a>
+    </div>
+  `;
+}
+
+function escapeHTML(s) {
+  const d = document.createElement("div");
+  d.textContent = s ?? "";
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
