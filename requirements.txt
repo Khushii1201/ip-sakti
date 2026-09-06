@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+asyncpg
+pydantic
+python-dotenv
+sentence-transformers
+rank-bm25
+groq
