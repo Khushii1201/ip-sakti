@@ -26,6 +26,12 @@ def get_model() -> SentenceTransformer:
     return _model
 
 
+def preload_model() -> None:
+    """Call once at app startup so the model download/load cost is paid
+    before the first request, not during it."""
+    get_model()
+
+
 def embed(text: str) -> list[float]:
     model = get_model()
     return model.encode(text, normalize_embeddings=True).tolist()

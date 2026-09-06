@@ -20,9 +20,18 @@ async def search_chunks(
     international-mode chunks, regardless of what the LLM does with them."""
     filters = ["jurisdiction = $2"]
     params: list = [str(query_embedding), jurisdiction]
+    next_param = 3
     if category:
-        filters.append("category = $3")
+        filters.append(f"category = ${next_param}")
         params.append(category)
+        next_param += 1
+
+    # top_k was previously an f-string directly in the SQL. It's not
+    # user-controlled today (comes from server-side settings), but
+    # parameterizing it is free and stops that from becoming a foot-gun the
+    # day someone exposes top_k as a query param.
+    top_k_param = next_param
+    params.append(top_k)
 
     where_clause = " AND ".join(filters)
     sql = f"""
@@ -33,7 +42,7 @@ async def search_chunks(
         join statutes s on s.id = c.statute_id
         where {where_clause}
         order by c.embedding <=> $1::vector
-        limit {top_k}
+        limit ${top_k_param}
     """
     async with pool.acquire() as conn:
         rows = await conn.fetch(sql, *params)

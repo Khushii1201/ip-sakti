@@ -1,3 +1,5 @@
+import asyncio
+
 import asyncpg
 
 from app.config import settings
@@ -19,7 +21,15 @@ async def answer_query(
 ) -> dict:
     if not pool:
         return {"answer": ABSTAIN_MESSAGE, "citations": [], "confidence": 0.0, "abstained": True}
-    query_embedding = embed(query)
+
+    # embed() and generate_answer() are both synchronous, CPU/network-bound
+    # calls being invoked directly inside an async handler -- that blocks the
+    # whole event loop for their entire duration, so one slow request stalls
+    # every other concurrent request on the same worker. Fine with one
+    # person testing locally; a real risk with several judges hitting /query
+    # around the same time on demo day. asyncio.to_thread hands each call to
+    # a worker thread instead.
+    query_embedding = await asyncio.to_thread(embed, query)
     rows = await search_chunks(pool, query_embedding, jurisdiction, category, settings.RETRIEVAL_TOP_K)
 
     if not rows:
@@ -40,6 +50,6 @@ async def answer_query(
         }
 
     sources = [dict(r) for r in rows]
-    answer_text = generate_answer(query, sources)
+    answer_text = await asyncio.to_thread(generate_answer, query, sources)
 
     return {"answer": answer_text, "citations": sources, "confidence": confidence, "abstained": False}
