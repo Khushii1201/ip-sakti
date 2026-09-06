@@ -13,16 +13,16 @@ Section 1. Short title, extent and commencement.--
 
 Section 2. Definitions and interpretation.--
 (1) In this Act, unless the context otherwise requires,--
-(a) "Appellate Board" means the Appellate Board referred to in section 116;
+(a) [Omitted by the Tribunals Reforms Act, 2021 (33 of 2021)];
 (ab) "assignee" includes the legal representative of a deceased assignee, and references to the assignee of any person include references to the assignee of the legal representative or assignee of that person;
 (b) "basic application" means an application for a patent, or for other similar protection, made in a convention country;
 (c) "complete specification" means a specification referred to in section 10;
 (d) "convention application" means an application for a patent made by virtue of section 135;
 (e) "convention country" means a country notified as such under section 133;
 (f) "exclusive licence" means a licence from a patentee which confers on the licensee, or on the licensee and persons authorised by him, to the exclusion of all other persons (including the patentee), any right in respect of the patented invention;
-(g) "food" means any article of food or drink for human consumption;
+(g) [Omitted by the Patents (Amendment) Act, 2005];
 (h) "Government undertaking" means any department of the Government, a Government company, a corporation established by a Central, Provincial or State Act;
-(i) "high court" means the High Court having jurisdiction in relation to the Patent Office;
+(i) "High Court", in relation to a State or Union territory, means the High Court having territorial jurisdiction in that State or Union territory;
 (j) "invention" means a new product or process involving an inventive step and capable of industrial application;
 (ja) "inventive step" means a feature of an invention that involves technical advance as compared to the existing knowledge or having economic significance or both and that makes the invention not obvious to a person skilled in the art;
 (k) "legal representative" means a person who in law represents the estate of a deceased person;
@@ -52,21 +52,22 @@ The following are not inventions within the meaning of this Act,--
 Explanation.--For the purposes of this clause, salts, esters, ethers, polymorphs, metabolites, pure form, particle size, isomers, mixtures of isomers, complexes, combinations and other derivatives of known substance shall be considered to be the same substance, unless they differ significantly in properties with regard to efficacy;
 (e) a substance obtained by a mere admixture resulting only in the aggregation of the properties of the components thereof or a process for producing such substance;
 (f) the mere arrangement or re-arrangement or duplication of known devices each functioning independently of one another in a known way;
-(g) a method of agriculture or horticulture;
-(h) any process for the medicinal, surgical, curative, prophylactic, diagnostic, therapeutic or other treatment of human beings or any process for a similar treatment of animals to render them free of disease or to increase their economic value or that of their products;
-(i) plants and animals in whole or any part thereof other than micro-organisms but including seeds, varieties and species and essentially biological processes for production or propagation of plants and animals;
-(j) a mathematical or business method or a computer programme per se or algorithms;
-(k) a literary, dramatic, musical or artistic work or any other aesthetic creation whatsoever including cinematographic works and television productions;
-(l) a mere scheme or rule or method of performing mental act or method of playing game;
-(m) a presentation of information;
-(n) topography of integrated circuits;
-(o) an invention which in effect, is traditional knowledge or which is an aggregation or duplication of known properties of traditionally known component or components.
+(g) [Omitted by the Patents (Amendment) Act, 2002 (38 of 2002), s. 4 (w.e.f. 20-5-2003)];
+(h) a method of agriculture or horticulture;
+(i) any process for the medicinal, surgical, curative, prophylactic, diagnostic, therapeutic or other treatment of human beings or any process for a similar treatment of animals to render them free of disease or to increase their economic value or that of their products;
+(j) plants and animals in whole or any part thereof other than micro-organisms but including seeds, varieties and species and essentially biological processes for production or propagation of plants and animals;
+(k) a mathematical or business method or a computer programme per se or algorithms;
+(l) a literary, dramatic, musical or artistic work or any other aesthetic creation whatsoever including cinematographic works and television productions;
+(m) a mere scheme or rule or method of performing mental act or method of playing game;
+(n) a presentation of information;
+(o) topography of integrated circuits;
+(p) an invention which in effect, is traditional knowledge or which is an aggregation or duplication of known properties of traditionally known component or components.
 
 Section 4. Inventions relating to atomic energy not patentable.--
 No patent shall be granted in respect of an invention relating to atomic energy falling within sub-section (1) of section 20 of the Atomic Energy Act, 1962.
 
 Section 5. Inventions where only methods or processes patentable.--
-[Omitted by the Patents (Amendment) Act, 2005].
+[Omitted by the Patents (Amendment) Act, 2005 (15 of 2005), s. 4 (w.e.f. 1-1-2005)].
 
 CHAPTER III
 APPLICATIONS FOR PATENTS
@@ -97,7 +98,7 @@ Section 10. Contents of specifications.--
 (c) end with a claim or claims defining the scope of the invention for which protection is claimed;
 (d) be accompanied by an abstract to provide technical information on the invention:
 Provided that the Controller may amend the abstract if he thinks fit.
-If the applicant mentions in a specification a biological material used in an invention which may not be available to the public, the applicant shall deposit the material with an International Depository Authority under the Budapest Treaty and disclose the source and geographical origin of the biological material in the specification.
+(4A) In case of an international application designating India, the evidence of depositing biological material under the Budapest Treaty and disclosure of the source and geographical origin of biological material used in the invention shall be supplied in the specification.
 
 Section 11. Priority dates of claims of a complete specification.--
 (1) There shall be a priority date for each claim of a complete specification.
@@ -149,7 +150,7 @@ Section 25. Opposition to the grant of patent.--
 (a) that the applicant for the patent or the person under or through whom he claims, wrongfully obtained the invention or any part thereof from him or from a person of whom he is the legal representative;
 (b) that the invention so far as claimed in any claim of the complete specification has been published before the priority date of the claim in any document in India or elsewhere;
 (c) that the invention so far as claimed in any claim of the complete specification is publicly known or publicly used in India before the priority date of the claim;
-(d) that the invention so far as claimed in any claim of the complete specification does not involve any inventive step, having regard to the matter published as mentioned in clause (b) or having regard to what was used in India before the priority date of the claim;
+(d) that the invention so far as claimed in any claim of the complete specification is obvious or does not involve any inventive step, having regard to the matter published as mentioned in clause (b) or having regard to what was used in India before the priority date of the claim;
 (e) that the invention so far as claimed in any claim of the complete specification is not an invention within the meaning of this Act, or is not patentable under this Act;
 (f) that the complete specification does not sufficiently and clearly describe the invention or the method by which it is to be performed;
 (g) that the applicant has failed to disclose to the Controller the information required by section 8 or has furnished information which was false in any material particular;
@@ -242,6 +243,9 @@ AMENDMENT OF SPECIFICATIONS
 Section 57. Amendment of application and specification before Controller.--
 (1) Subject to the provisions of section 59, the Controller may, upon application made under this section in the prescribed manner by an applicant for a patent or a patentee, allow the application for patent or the complete specification or any document relating thereto to be amended subject to such conditions as the Controller thinks fit.
 
+Section 58. Amendment of specification before High Court.--
+(1) In any proceeding before the High Court for the revocation of a patent, the High Court may, if it thinks fit, allow the patentee to amend his complete specification in such manner, and subject to such terms as to costs, advertisement or otherwise, as the High Court may think fit.
+
 Section 59. Supplementary provisions as to amendment of specification.--
 (1) No amendment of an application for a patent or a complete specification or any document relating thereto shall be made except by way of disclaimer, correction or explanation, and no amendment thereof shall be allowed, except for the purpose of incorporation of a fact, the effect of which would be that the specification as amended would claim or describe matter not in substance disclosed or shown in the specification before the amendment, or that any claim of the specification as amended would not fall wholly within the scope of a claim of the specification before the amendment.
 
@@ -258,21 +262,21 @@ Section 63. Surrender of patents.--
 (1) A patentee may, at any time by giving notice in the prescribed manner to the Controller, offer to surrender his patent.
 
 Section 64. Revocation of patents.--
-(1) Subject to the provisions contained in this Act, a patent, whether granted before or after the commencement of this Act, may, be revoked on a petition of any person interested or of the Central Government by the Appellate Board or on a counter-claim in a suit for infringement of the patent by the High Court on any of the following grounds, namely:--
+(1) Subject to the provisions contained in this Act, a patent, whether granted before or after the commencement of this Act, may, be revoked on a petition of any person interested or of the Central Government by the High Court or on a counter-claim in a suit for infringement of the patent by the High Court on any of the following grounds, namely:--
 (a) that the invention, so far as claimed in any claim of the complete specification, was claimed in a valid claim of earlier priority date contained in the complete specification of another patent granted in India;
 (b) that the patent was granted on the application of a person not entitled under the provisions of this Act to apply therefor;
 (c) that the patent was obtained wrongfully in contravention of the rights of the petitioner or any person under or through whom he claims;
-(d) that the subject of any claim of the complete specification is not an invention of the meaning of this Act;
+(d) that the subject of any claim of the complete specification is not an invention within the meaning of this Act;
 (e) that the invention so far as claimed in any claim of the complete specification is not new, having regard to what was publicly known or publicly used in India before the priority date of the claim or to what was published in India or elsewhere in any of the documents referred to in section 13;
-(f) that the invention so far as claimed in any claim of the complete specification does not involve any inventive step, having regard to what was publicly known or publicly used in India or what was published in India or elsewhere before the priority date of the claim;
+(f) that the invention so far as claimed in any claim of the complete specification is obvious or does not involve any inventive step, having regard to what was publicly known or publicly used in India or what was published in India or elsewhere before the priority date of the claim;
 (g) that the invention, so far as claimed in any claim of the complete specification, is not useful;
 (h) that the complete specification does not sufficiently and fairly describe the invention and the method by which it is to be performed;
 (i) that the scope of any claim of the complete specification is not sufficiently and clearly defined or that any claim of the complete specification is not fairly based on the matter disclosed in the specification;
 (j) that the patent was obtained on a false suggestion or representation;
-(k) that the subject of any claim of the complete specification is not patentable under section 3 or section 4;
-(l) that the invention so far as claimed in any claim of the complete specification was secretly used in India, otherwise than as mentioned in sub-section (2), before the priority date of the claim;
+(k) that the subject of any claim of the complete specification is not patentable under this Act;
+(l) that the invention so far as claimed in any claim of the complete specification was secretly used in India, otherwise than as mentioned in sub-section (3), before the priority date of the claim;
 (m) that the applicant for the patent has failed to disclose to the Controller the information required by section 8 or has furnished information which was false in any material particular;
-(n) that the applicant contravened any direction for secrecy passed under section 35;
+(n) that the applicant has failed to comply with the direction passed under section 35 or has made or caused to be made an application for the grant of a patent in contravention of section 39;
 (o) that leave to amend the complete specification under section 57 or section 58 was obtained by fraud;
 (p) that the complete specification does not disclose or wrongly mentions the source or geographical origin of biological material used for the invention;
 (q) that the invention so far as claimed in any claim of the complete specification was anticipated having regard to the knowledge, oral or otherwise, available within any local or indigenous community in India or elsewhere.
@@ -354,15 +358,25 @@ Section 107A. Certain acts not to be considered as infringement.--
 For the purposes of this Act,--
 (a) any act of making, constructing, using, selling or importing a patented invention solely for uses reasonably related to the development and submission of information required under any law for the time being in force, in India, or in a country other than India, that regulates the manufacture, construction, use, sale or import of any product;
 (b) importation of patented products by any person from a person who is duly authorised under the law to produce and sell or distribute the product,
-shall not be considered as a feature of infringement of patent rights.
+shall not be considered as an infringement of patent rights.
 
 Section 108. Reliefs in suits for infringement.--
 (1) The reliefs which a court may grant in any suit for infringement include an injunction (subject to such terms, if any, as the court thinks fit) and, at the option of the plaintiff, either damages or an account of profits.
 
+CHAPTER XIX
+APPEALS
+
+Section 116. Appeals to High Court.--
+(1) No appeal shall lie from any decision, order or direction made or issued under this Act by the Central Government, or from any act or order of the Controller for the purpose of giving effect to any such decision, order or direction.
+(2) Save as otherwise expressly provided in sub-section (1), an appeal shall lie to the High Court from any decision, order or direction of the Controller of Central Government under any of the following provisions, namely: section 15, section 16, section 17, section 18, section 19, section 20, sub-section (4) of section 25, section 28, section 57, section 60, section 63, section 69, section 78, section 84, section 85, section 88, section 91, section 92 or section 94.
+
+Section 117A. Appeals to High Court.--
+(1) An appeal shall lie to the High Court from any decision, order or direction of the Controller or Central Government under section 15, section 16, section 17, section 18, section 19, section 20, sub-section (4) of section 25, section 28, section 57, section 60, section 63, section 69, section 78, section 84, section 85, section 88, section 91, section 92 or section 94.
+
 CHAPTER XX
 PENALTIES
 
-Section 118. Penalty for contravention of secrecy provisions.--
+Section 118. Penalty for contravention of secrecy provisions or section 39.--
 If any person fails to comply with any direction given under section 35 or makes or causes to be made an application for the grant of a patent in contravention of section 39, he shall be punishable with imprisonment for a term which may extend to two years, or with fine, or with both.
 
 Section 120. Unauthorized claim of patent rights.--
